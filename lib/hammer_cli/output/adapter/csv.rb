@@ -17,20 +17,52 @@ module HammerCLI::Output::Adapter
     end
 
     def print_record(fields, record)
-      print_collection(fields, [record].flatten(1))
+      print_collection(find_leaf_fields(fields), [record].flatten(1))
+    end
+
+    def prefix_for_field(field, prefix)
+      prefix ? prefix + "::#{field.label}" : field.label
+    end
+
+    def displayName(field, prefix)
+      if(prefix)
+        "#{prefix}::#{field.label}"
+      else
+        field.label
+      end
+    end
+
+    def find_leaf_fields(fields, prefix=nil)
+      results = []
+      fields.each do |field|
+        if field.is_a? Fields::Collection
+          #do nothing
+        elsif field.is_a?(Fields::ContainerField)
+          results = results + find_leaf_fields(field.fields, prefix_for_field(field, prefix))
+        else
+          @display_for_field ||= {}
+          @display_for_field[field] = displayName(field, prefix)
+          results << field
+        end
+      end
+      return results
+    end
+
+    def format(field, value)
+      formatter = @formatters.formatter_for_type(field.class)
+      (formatter ? formatter.format(value) : value) || ''
     end
 
     def print_collection(fields, collection)
       csv_string = generate do |csv|
         # labels
-        csv << fields.select{ |f| !(f.class <= Fields::Id) || @context[:show_ids] }.map { |f| f.label }
+        csv << fields.select{ |f| !(f.class <= Fields::Id) || @context[:show_ids] }.map { |f| @display_for_field[f] }
         # data
         collection.each do |d|
           csv << fields.inject([]) do |row, f|
             unless f.class <= Fields::Id && !@context[:show_ids]
               value = data_for_field(f, d)
-              formatter = @formatters.formatter_for_type(f.class)
-              row << ((formatter ? formatter.format(value) : value) || '')
+              row << format(f,value)
             end
             row
           end
