@@ -12,37 +12,54 @@ module HammerCLI::Output::Adapter
 
   class CSValues < Abstract
 
+    class FieldWrapper
+      attr_accessor :name, :field
+
+      def self.wrap(fields)
+        fields.map{ |f| FieldWrapper.new(f) }
+      end
+
+      def initialize(field)
+        @field = field
+        @name = nil
+        @prefixes = []
+      end
+
+      def append_prefix(prefix)
+        @prefixes << prefix
+      end
+
+      def prefix
+        @prefixes.join("::")
+      end
+
+      def display_name
+        result = "#{@name || @field.label}"
+        result = "#{prefix}::" + result unless prefix.empty?
+        result
+      end
+    end
+
     def tags
       [:flat]
     end
 
     def print_record(fields, record)
-      print_collection(find_leaf_fields(fields), [record].flatten(1))
+      print_collection(find_leaf_fields(FieldWrapper.wrap(fields)), [record].flatten(1))
     end
 
-    def prefix_for_field(field, prefix)
-      prefix ? prefix + "::#{field.label}" : field.label
-    end
-
-    def displayName(field, prefix)
-      if(prefix)
-        "#{prefix}::#{field.label}"
-      else
-        field.label
-      end
-    end
-
-    def find_leaf_fields(fields, prefix=nil)
+    def find_leaf_fields(field_wrappers)
       results = []
-      fields.each do |field|
+      field_wrappers.each do |field_wrapper|
+        field = field_wrapper.field
         if field.is_a? Fields::Collection
-          #do nothing
+          #do not display
         elsif field.is_a?(Fields::ContainerField)
-          results = results + find_leaf_fields(field.fields, prefix_for_field(field, prefix))
+          child_fields = FieldWrapper.wrap(field.fields)
+          child_fields.each{ |child| child.append_prefix(field.label) }
+          results = results + find_leaf_fields(child_fields)
         else
-          @display_for_field ||= {}
-          @display_for_field[field] = displayName(field, prefix)
-          results << field
+          results << field_wrapper
         end
       end
       return results
@@ -53,13 +70,13 @@ module HammerCLI::Output::Adapter
       (formatter ? formatter.format(value) : value) || ''
     end
 
-    def print_collection(fields, collection)
+    def print_collection(field_wrappers, collection)
       csv_string = generate do |csv|
         # labels
-        csv << fields.select{ |f| !(f.class <= Fields::Id) || @context[:show_ids] }.map { |f| @display_for_field[f] }
+        csv << field_wrappers.select{ |f| !(f.field.class <= Fields::Id) || @context[:show_ids] }.map { |f| f.display_name }
         # data
         collection.each do |d|
-          csv << fields.inject([]) do |row, f|
+          csv << field_wrappers.map(&:field).inject([]) do |row, f|
             unless f.class <= Fields::Id && !@context[:show_ids]
               value = data_for_field(f, d)
               row << format(f,value)
