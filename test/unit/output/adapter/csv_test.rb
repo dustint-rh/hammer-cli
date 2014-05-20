@@ -16,74 +16,6 @@ describe HammerCLI::Output::Adapter::CSValues do
       :started_at => "2000"
     }]}
 
-    context "handle fields with containers" do
-      let(:demographics) {
-        Fields::Label.new(:path => [], :label => "Demographics") do
-          from :demographics do
-            field :age, "Age"
-            field :gender, "Gender"
-            label _("Biometrics") do
-              from :biometrics do
-                field :weight, "Weight"
-                field :height, "Height"
-              end
-            end
-          end
-        end
-      }
-      let(:fields) {
-        [field_name, field_started_at, demographics]
-      }
-      let(:data) { HammerCLI::Output::RecordCollection.new [{
-        :name => "John Doe",
-        :started_at => "2000",
-        :demographics=> { :age => '22', :gender => 'm', :biometrics => { :weight => '123', :height => '155' } }
-      }]}
-
-      it "should print column names" do
-        out, err = capture_io { adapter.print_collection(fields, data) }
-        out.must_match /.*Demographics::Age,Demographics::Gender,Biometrics::Weight,Biometrics::Height*/
-        err.must_match //
-      end
-
-      it "should print data" do
-        out, err = capture_io { adapter.print_collection(fields, data) }
-        out.must_match /.*2000,22,m,123,155*/
-        err.must_match //
-      end
-    end
-
-    context "handle fields with collections" do
-      let(:items) {
-        Fields::Collection.new(:path => [:items], :label => "Items") do
-          from :item do
-            field :name, "Item Name"
-            field :quantity, "Item Quantity"
-          end
-        end
-      }
-      let(:fields) {
-        [field_name, field_started_at, items]
-      }
-      let(:data) { HammerCLI::Output::RecordCollection.new [{
-        :name => "John Doe",
-        :started_at => "2000",
-        :items => [{:item => { :name => 'hammer', :quantity => '100'}}]
-      }]}
-
-      it "should print collection column name" do
-        out, err = capture_io { adapter.print_collection(fields, data) }
-        out.must_match /.*Items::Item Name::1,Items::Item Quantity::1*/
-        err.must_match //
-      end
-
-      it "should print collection data" do
-        out, err = capture_io { adapter.print_collection(fields, data) }
-        out.must_match /.*hammer,100*/
-        err.must_match //
-      end
-    end
-
     it "should print column name" do
       out, err = capture_io { adapter.print_collection(fields, data) }
       out.must_match /.*Name,Started At.*/
@@ -112,11 +44,81 @@ describe HammerCLI::Output::Adapter::CSValues do
         out.wont_match(/.*2000,.*/)
       end
 
-#       it "should print column of type Id when --show-ids is set" do
-#         adapter = HammerCLI::Output::Adapter::CSValues.new( { :show_ids => true } )
-#         out, err = capture_io { adapter.print_collection(fields, data) }
-#         out.must_match(/.*Id.*/)
-#       end
+      it "should print column of type Id when --show-ids is set" do
+        adapter = HammerCLI::Output::Adapter::CSValues.new( { :show_ids => true } )
+        out, err = capture_io { adapter.print_collection(fields, data) }
+        out.must_match(/.*Id.*/)
+      end
+
+      context "handle fields with containers" do
+        let(:demographics) {
+          Fields::Label.new(:path => [], :label => "Demographics") do
+            from :demographics do
+              field :age, "Age"
+              field :gender, "Gender"
+              label _("Biometrics") do
+                from :biometrics do
+                  field :weight, "Weight"
+                  field :height, "Height"
+                end
+              end
+            end
+          end
+        }
+        let(:fields) {
+          [field_name, field_started_at, demographics]
+        }
+        let(:data) { HammerCLI::Output::RecordCollection.new [{
+          :name => "John Doe",
+          :started_at => "2000",
+          :demographics=> { :age => '22', :gender => 'm', 
+                            :biometrics => { :weight => '123', :height => '155' } }
+        }]}
+
+        it "should print column names" do
+          out, err = capture_io { adapter.print_collection(fields, data) }
+          out.must_match /.*Demographics::Age,Demographics::Gender,Biometrics::Weight,Biometrics::Height*/
+          err.must_match //
+        end
+
+        it "should print data" do
+          out, err = capture_io { adapter.print_collection(fields, data) }
+          out.must_match /.*2000,22,m,123,155*/
+          err.must_match //
+        end
+      end
+
+      context "handle fields with collections" do
+        let(:items) {
+          Fields::Collection.new(:path => [:items], :label => "Items") do
+            from :item do
+              field :name, "Item Name"
+              field :quantity, "Item Quantity"
+            end
+          end
+        }
+        let(:fields) {
+          [field_name, field_started_at, items]
+        }
+        let(:data) { HammerCLI::Output::RecordCollection.new [{
+          :name => "John Doe",
+          :started_at => "2000",
+          :items => [{:item => { :name => 'hammer', :quantity => '100'}}]
+        }]}
+
+        it "should print collection column name" do
+          out, err = capture_io { adapter.print_collection(fields, data) }
+          out.must_match /.*Items::Item Name::1,Items::Item Quantity::1*/
+          err.must_match //
+        end
+
+        it "should print collection data" do
+          out, err = capture_io { adapter.print_collection(fields, data) }
+          out.must_match /.*hammer,100*/
+          err.must_match //
+        end
+      end
+
     end
 
     context "formatters" do
