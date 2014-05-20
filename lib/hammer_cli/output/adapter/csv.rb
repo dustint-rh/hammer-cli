@@ -41,17 +41,17 @@ module HammerCLI::Output::Adapter
         (formatter ? formatter.format(value) : value) || ''
       end
 
-      def self.values(cells)
+      def self.values(cells, context)
         cells.inject([]) do |row_presentation, cell|
-          unless cell.field_wrapper.field.class <= Fields::Id && !@context[:show_ids]
+          unless cell.field_wrapper.field.class <= Fields::Id && !context[:show_ids]
             row_presentation << cell.formatted_value
           end
         end
       end
 
-      def self.headers(cells)
+      def self.headers(cells, context)
         cells.map(&:field_wrapper)
-                .select{ |f| !(f.field.class <= Fields::Id) || @context[:show_ids] }
+                .select{ |f| !(f.field.class <= Fields::Id) || context[:show_ids] }
                   .map { |f| f.display_name }
       end
 
@@ -140,9 +140,9 @@ module HammerCLI::Output::Adapter
       end
       csv_string = generate do |csv|
         # labels
-        csv << Cell.headers(row_data[0])
+        csv << Cell.headers(row_data[0], @context)
         row_data.each do |row|
-          csv << Cell.values(row)
+          csv << Cell.values(row, @context)
         end
       end
       puts csv_string
