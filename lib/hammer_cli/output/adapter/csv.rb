@@ -126,19 +126,23 @@ module HammerCLI::Output::Adapter
       [:flat]
     end
 
+    def row_data(fields, collection)
+      result = []
+      collection.each do |data|
+        result << Cell.create_cells(FieldWrapper.wrap(fields), data, @formatters)
+      end
+      result
+    end
+
     def print_record(fields, record)
       print_collection(fields, [record].flatten(1))
     end
 
     def print_collection(fields, collection)
-      row_data = []
-      collection.each do |data|
-        row_data << Cell.create_cells(FieldWrapper.wrap(fields), data, @formatters)
-      end
+      rows = row_data(fields, collection)
       csv_string = generate do |csv|
-        # labelell.values(row, @context)
-        csv << Cell.headers(row_data[0], @context)
-        row_data.each do |row|
+        csv << Cell.headers(rows[0], @context)
+        rows.each do |row|
           csv << Cell.values(row, @context)
         end
       end
