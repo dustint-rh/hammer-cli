@@ -100,7 +100,7 @@ module HammerCLI::Output::Adapter
       end
 
       def append_suffix(suffix)
-        @suffixes << suffix 
+        @suffixes << suffix
       end
 
       def append_prefix(prefix)
@@ -111,7 +111,7 @@ module HammerCLI::Output::Adapter
         @prefixes.join("::")
       end
 
-      def suffix 
+      def suffix
         @suffixes.join("::")
       end
 
@@ -128,7 +128,6 @@ module HammerCLI::Output::Adapter
     end
 
     def print_record(fields, record)
-      require 'debugger' 
       print_collection(fields, [record].flatten(1))
     end
 
