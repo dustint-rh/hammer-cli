@@ -42,14 +42,13 @@ module HammerCLI::Output::Adapter
       end
 
       def self.values(cells, context)
-        cells.select{ |cell| !(cell.field_wrapper.field.class <= Fields::Id) || context[:show_ids] }
-          .map{ |cell| cell.formatted_value }
+        cells.select{ |cell| !(cell.field_wrapper.field.class <= Fields::Id) || 
+                      context[:show_ids] }.map{ |cell| cell.formatted_value }
       end
 
       def self.headers(cells, context)
-        cells.map(&:field_wrapper)
-                .select{ |f| !(f.field.class <= Fields::Id) || context[:show_ids] }
-                  .map { |f| f.display_name }
+        cells.map(&:field_wrapper).select{ |f| !(f.field.class <= Fields::Id) || 
+                                           context[:show_ids] }.map { |f| f.display_name }
       end
 
       private
