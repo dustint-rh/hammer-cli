@@ -12,62 +12,72 @@ module HammerCLI::Output::Adapter
 
   class CSValues < Abstract
 
-    class FieldDataWrapper
+    class Cell
       attr_accessor :field_wrapper, :data
 
-      def initialize(field_wrapper, data)
+      def initialize(field_wrapper, data, formatters)
         @field_wrapper = field_wrapper
         @data = data
+        @formatters = formatters
+      end
+
+      def self.data_for_field(field, data)
+        HammerCLI::Output::Adapter::CSValues.data_for_field(field, data)
       end
 
       def value
-        HammerCLI::Output::Adapter::CSValues.data_for_field(@field_wrapper.field, data)
+        Cell.data_for_field(@field_wrapper.field, data)
       end
 
-      def self.values(field_data_wrappers)
-        field_data_wrappers.inject([]) do |row_presentation, cell|
+      def formatted_value
+        formatter = @formatters.formatter_for_type(@field_wrapper.field.class)
+        (formatter ? formatter.format(value) : value) || ''
+      end
+
+      def self.values(cells)
+        cells.inject([]) do |row_presentation, cell|
           unless cell.field_wrapper.field.class <= Fields::Id && !@context[:show_ids]
-            row_presentation << cell.value 
+            row_presentation << cell.formatted_value
           end
         end
       end
 
-      def self.headers(field_data_wrappers)
-        field_data_wrappers.map(&:field_wrapper)
+      def self.headers(cells)
+        cells.map(&:field_wrapper)
                 .select{ |f| !(f.field.class <= Fields::Id) || @context[:show_ids] }
                   .map { |f| f.display_name }
       end
 
-      def self.expand_collection(field, data)
+      def self.expand_collection(field, data, formatters)
         results = []
-        collection_data = HammerCLI::Output::Adapter::CSValues.data_for_field(field, data)
+        collection_data = data_for_field(field, data)
         collection_data.each_with_index do |child_data, i|
           field.fields.each do |child_field|
             child_field_wrapper = FieldWrapper.new(child_field)
             child_field_wrapper.append_prefix(field.label)
-            child_field_wrapper.append_suffix(i.to_s)
-            results << FieldDataWrapper.new(child_field_wrapper, collection_data[i] || {})
+            child_field_wrapper.append_suffix((i + 1).to_s)
+            results << Cell.new(child_field_wrapper, collection_data[i] || {}, formatters)
           end
         end
         results
       end
 
-      def self.collect(fields, data)
-        collect_field_data(FieldWrapper.wrap(field), data)
+      def self.expand_container(field, data, formatters)
+        child_fields = FieldWrapper.wrap(field.fields)
+        child_fields.each{ |child| child.append_prefix(field.label) }
+        create_cells(child_fields, data_for_field(field, data), formatters)
       end
 
-      def self.collect_field_data(field_wrappers, data)
+      def self.create_cells(field_wrappers, data, formatters)
         results = []
         field_wrappers.each do |field_wrapper|
           field = field_wrapper.field
           if field.is_a? Fields::Collection
-            results = results + expand_collection(field, data)
+            results = results + expand_collection(field, data, formatters)
           elsif field.is_a?(Fields::ContainerField)
-            child_fields = FieldWrapper.wrap(field.fields)
-            child_fields.each{ |child| child.append_prefix(field.label) }
-            results = results + collect_field_data(child_fields, HammerCLI::Output::Adapter::CSValues::data_for_field(field, data))
+            results = results + expand_container(field, data, formatters)
           else
-            results << FieldDataWrapper.new(field_wrapper, data)
+            results << Cell.new(field_wrapper, data, formatters)
           end
         end
         return results
@@ -122,40 +132,16 @@ module HammerCLI::Output::Adapter
       print_collection(fields, [record].flatten(1))
     end
 
-    def find_leaf_fields(field_wrappers)
-      results = []
-      field_wrappers.each do |field_wrapper|
-        field = field_wrapper.field
-        if field.is_a? Fields::Collection
-          #do not display
-        elsif field.is_a?(Fields::ContainerField)
-          child_fields = FieldWrapper.wrap(field.fields)
-          child_fields.each{ |child| child.append_prefix(field.label) }
-          results = results + find_leaf_fields(child_fields)
-        else
-          results << field_wrapper
-        end
-      end
-      return results
-    end
-
-    def format(field, value)
-      formatter = @formatters.formatter_for_type(field.class)
-      (formatter ? formatter.format(value) : value) || ''
-    end
-
     def print_collection(fields, collection)
       row_data = []
       collection.each do |data|
-        row_data << FieldDataWrapper.collect_field_data(FieldWrapper.wrap(fields), data)
+        row_data << Cell.create_cells(FieldWrapper.wrap(fields), data, @formatters)
       end
       csv_string = generate do |csv|
         # labels
-        require 'debugger'
-        debugger
-        csv << FieldDataWrapper.headers(row_data[0])
+        csv << Cell.headers(row_data[0])
         row_data.each do |row|
-          csv << FieldDataWrapper.values(row)
+          csv << Cell.values(row)
         end
       end
       puts csv_string
