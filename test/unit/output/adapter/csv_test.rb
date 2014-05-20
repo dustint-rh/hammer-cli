@@ -17,6 +17,34 @@ describe HammerCLI::Output::Adapter::CSValues do
     }]}
 
     context "handle fields with collections" do
+      let(:items) {
+        Fields::Collection.new(:path => [:items], :label => "Items") do
+          from :item do
+            field :name, "Item Name"
+            field :quantity, "Item Quantity"
+          end
+        end
+      }
+      let(:fields) {
+        [field_name, field_started_at, items]
+      }
+      let(:data) { HammerCLI::Output::RecordCollection.new [{
+        :name => "John Doe",
+        :started_at => "2000",
+        :items => [{:item => { :name => 'hammer', :quantity => '100'}}]
+      }]}
+
+      it "should print collection column name" do
+        out, err = capture_io { adapter.print_collection(fields, data) }
+        out.must_match /.*Items::Item Name::1,Items::Item Quantity::1*/
+        err.must_match //
+      end
+
+      it "should print collection data" do
+        out, err = capture_io { adapter.print_collection(fields, data) }
+        out.must_match /.*hammer,100*/
+        err.must_match //
+      end
     end
 
     it "should print column name" do
