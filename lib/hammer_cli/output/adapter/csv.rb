@@ -12,6 +12,68 @@ module HammerCLI::Output::Adapter
 
   class CSValues < Abstract
 
+    class FieldDataWrapper
+      attr_accessor :field_wrapper, :data
+
+      def initialize(field_wrapper, data)
+        @field_wrapper = field_wrapper
+        @data = data
+      end
+
+      def value
+        HammerCLI::Output::Adapter::CSValues.data_for_field(@field_wrapper.field, data)
+      end
+
+      def self.values(field_data_wrappers)
+        field_data_wrappers.inject([]) do |row_presentation, cell|
+          unless cell.field_wrapper.field.class <= Fields::Id && !@context[:show_ids]
+            row_presentation << cell.value 
+          end
+        end
+      end
+
+      def self.headers(field_data_wrappers)
+        field_data_wrappers.map(&:field_wrapper)
+                .select{ |f| !(f.field.class <= Fields::Id) || @context[:show_ids] }
+                  .map { |f| f.display_name }
+      end
+
+      def self.expand_collection(field, data)
+        results = []
+        collection_data = HammerCLI::Output::Adapter::CSValues.data_for_field(field, data)
+        collection_data.each_with_index do |child_data, i|
+          field.fields.each do |child_field|
+            child_field_wrapper = FieldWrapper.new(child_field)
+            child_field_wrapper.append_prefix(field.label)
+            child_field_wrapper.append_suffix(i.to_s)
+            results << FieldDataWrapper.new(child_field_wrapper, collection_data[i] || {})
+          end
+        end
+        results
+      end
+
+      def self.collect(fields, data)
+        collect_field_data(FieldWrapper.wrap(field), data)
+      end
+
+      def self.collect_field_data(field_wrappers, data)
+        results = []
+        field_wrappers.each do |field_wrapper|
+          field = field_wrapper.field
+          if field.is_a? Fields::Collection
+            results = results + expand_collection(field, data)
+          elsif field.is_a?(Fields::ContainerField)
+            child_fields = FieldWrapper.wrap(field.fields)
+            child_fields.each{ |child| child.append_prefix(field.label) }
+            results = results + collect_field_data(child_fields, HammerCLI::Output::Adapter::CSValues::data_for_field(field, data))
+          else
+            results << FieldDataWrapper.new(field_wrapper, data)
+          end
+        end
+        return results
+      end
+    end
+
     class FieldWrapper
       attr_accessor :name, :field
 
@@ -23,6 +85,12 @@ module HammerCLI::Output::Adapter
         @field = field
         @name = nil
         @prefixes = []
+        @suffixes = []
+        @data
+      end
+
+      def append_suffix(suffix)
+        @suffixes << suffix 
       end
 
       def append_prefix(prefix)
@@ -33,9 +101,14 @@ module HammerCLI::Output::Adapter
         @prefixes.join("::")
       end
 
+      def suffix 
+        @suffixes.join("::")
+      end
+
       def display_name
         result = "#{@name || @field.label}"
         result = "#{prefix}::" + result unless prefix.empty?
+        result = result + "::#{suffix}" unless suffix.empty?
         result
       end
     end
@@ -45,7 +118,8 @@ module HammerCLI::Output::Adapter
     end
 
     def print_record(fields, record)
-      print_collection(find_leaf_fields(FieldWrapper.wrap(fields)), [record].flatten(1))
+      require 'debugger' 
+      print_collection(fields, [record].flatten(1))
     end
 
     def find_leaf_fields(field_wrappers)
@@ -70,19 +144,18 @@ module HammerCLI::Output::Adapter
       (formatter ? formatter.format(value) : value) || ''
     end
 
-    def print_collection(field_wrappers, collection)
+    def print_collection(fields, collection)
+      row_data = []
+      collection.each do |data|
+        row_data << FieldDataWrapper.collect_field_data(FieldWrapper.wrap(fields), data)
+      end
       csv_string = generate do |csv|
         # labels
-        csv << field_wrappers.select{ |f| !(f.field.class <= Fields::Id) || @context[:show_ids] }.map { |f| f.display_name }
-        # data
-        collection.each do |d|
-          csv << field_wrappers.map(&:field).inject([]) do |row, f|
-            unless f.class <= Fields::Id && !@context[:show_ids]
-              value = data_for_field(f, d)
-              row << format(f,value)
-            end
-            row
-          end
+        require 'debugger'
+        debugger
+        csv << FieldDataWrapper.headers(row_data[0])
+        row_data.each do |row|
+          csv << FieldDataWrapper.values(row)
         end
       end
       puts csv_string
