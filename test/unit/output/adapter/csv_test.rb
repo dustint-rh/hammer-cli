@@ -16,6 +16,43 @@ describe HammerCLI::Output::Adapter::CSValues do
       :started_at => "2000"
     }]}
 
+    context "handle fields with containers" do
+      let(:demographics) {
+        Fields::Label.new(:path => [], :label => "Demographics") do
+          from :demographics do
+            field :age, "Age"
+            field :gender, "Gender"
+            label _("Biometrics") do
+              from :biometrics do
+                field :weight, "Weight"
+                field :height, "Height"
+              end
+            end
+          end
+        end
+      }
+      let(:fields) {
+        [field_name, field_started_at, demographics]
+      }
+      let(:data) { HammerCLI::Output::RecordCollection.new [{
+        :name => "John Doe",
+        :started_at => "2000",
+        :demographics=> { :age => '22', :gender => 'm', :biometrics => { :weight => '123', :height => '155' } }
+      }]}
+
+      it "should print column names" do
+        out, err = capture_io { adapter.print_collection(fields, data) }
+        out.must_match /.*Demographics::Age,Demographics::Gender,Biometrics::Weight,Biometrics::Height*/
+        err.must_match //
+      end
+
+      it "should print data" do
+        out, err = capture_io { adapter.print_collection(fields, data) }
+        out.must_match /.*2000,22,m,123,155*/
+        err.must_match //
+      end
+    end
+
     context "handle fields with collections" do
       let(:items) {
         Fields::Collection.new(:path => [:items], :label => "Items") do
