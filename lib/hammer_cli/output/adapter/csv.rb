@@ -21,12 +21,19 @@ module HammerCLI::Output::Adapter
         @formatters = formatters
       end
 
-      def self.data_for_field(field, data)
-        HammerCLI::Output::Adapter::CSValues.data_for_field(field, data)
-      end
-
-      def value
-        Cell.data_for_field(@field_wrapper.field, data)
+      def self.create_cells(field_wrappers, data, formatters)
+        results = []
+        field_wrappers.each do |field_wrapper|
+          field = field_wrapper.field
+          if field.is_a? Fields::Collection
+            results = results + expand_collection(field, data, formatters)
+          elsif field.is_a?(Fields::ContainerField)
+            results = results + expand_container(field, data, formatters)
+          else
+            results << Cell.new(field_wrapper, data, formatters)
+          end
+        end
+        return results
       end
 
       def formatted_value
@@ -48,6 +55,8 @@ module HammerCLI::Output::Adapter
                   .map { |f| f.display_name }
       end
 
+      private
+
       def self.expand_collection(field, data, formatters)
         results = []
         collection_data = data_for_field(field, data)
@@ -68,19 +77,12 @@ module HammerCLI::Output::Adapter
         create_cells(child_fields, data_for_field(field, data), formatters)
       end
 
-      def self.create_cells(field_wrappers, data, formatters)
-        results = []
-        field_wrappers.each do |field_wrapper|
-          field = field_wrapper.field
-          if field.is_a? Fields::Collection
-            results = results + expand_collection(field, data, formatters)
-          elsif field.is_a?(Fields::ContainerField)
-            results = results + expand_container(field, data, formatters)
-          else
-            results << Cell.new(field_wrapper, data, formatters)
-          end
-        end
-        return results
+      def self.data_for_field(field, data)
+        HammerCLI::Output::Adapter::CSValues.data_for_field(field, data)
+      end
+
+      def value
+        Cell.data_for_field(@field_wrapper.field, data)
       end
     end
 
