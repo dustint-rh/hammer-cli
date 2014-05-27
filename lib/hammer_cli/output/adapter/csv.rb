@@ -41,9 +41,11 @@ module HammerCLI::Output::Adapter
         (formatter ? formatter.format(value) : value) || ''
       end
 
-      def self.values(cells, context)
-        cells.select{ |cell| !(cell.field_wrapper.field.class <= Fields::Id) || 
-                      context[:show_ids] }.map{ |cell| cell.formatted_value }
+      def self.values(headers, cells)
+        headers.map do |header|
+          cell = cells.find{ |cell| cell.field_wrapper.display_name == header }
+          cell ? cell.formatted_value : ''
+        end
       end
 
       def self.headers(cells, context)
@@ -139,10 +141,11 @@ module HammerCLI::Output::Adapter
 
     def print_collection(fields, collection)
       rows = row_data(fields, collection)
+      headers = rows.map{ |r| Cell.headers(r, @context) }.max_by{ |headers| headers.size }
       csv_string = generate do |csv|
-        csv << Cell.headers(rows[0], @context)
+        csv << headers
         rows.each do |row|
-          csv << Cell.values(row, @context)
+          csv << Cell.values(headers, row)
         end
       end
       puts csv_string
