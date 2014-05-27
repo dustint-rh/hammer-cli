@@ -116,10 +116,11 @@ module HammerCLI::Output::Adapter
       end
 
       def display_name
-        result = "#{@name || @field.label}"
-        result = "#{prefix}::" + result unless prefix.empty?
-        result = result + "::#{suffix}" unless suffix.empty?
-        result
+        names = []
+        names << prefix unless prefix.empty?
+        names << @field.label if @field.label
+        names << suffix unless suffix.empty?
+        names.join("::")
       end
     end
 
