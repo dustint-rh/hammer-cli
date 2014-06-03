@@ -43,13 +43,17 @@ module HammerCLI::Output::Adapter
 
       def self.values(headers, cells)
         headers.map do |header|
-          cells.find { |c| c.field_wrapper.display_name == header }.formatted_value
+          cells.find { |cell| cell.in_column?(header) }.formatted_value
         end
       end
 
       def self.headers(cells, context)
         cells.map(&:field_wrapper).select{ |f| !(f.field.class <= Fields::Id) ||
                                            context[:show_ids] }.map { |f| f.display_name }
+      end
+
+      def in_column?(header)
+        self.field_wrapper.display_name == header
       end
 
       private
