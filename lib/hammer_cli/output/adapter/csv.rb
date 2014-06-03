@@ -48,7 +48,7 @@ module HammerCLI::Output::Adapter
       end
 
       def self.headers(cells, context)
-        cells.map(&:field_wrapper).select{ |f| !(f.field.class <= Fields::Id) || 
+        cells.map(&:field_wrapper).select{ |f| !(f.field.class <= Fields::Id) ||
                                            context[:show_ids] }.map { |f| f.display_name }
       end
 
