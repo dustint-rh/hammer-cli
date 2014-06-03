@@ -38,13 +38,12 @@ module HammerCLI::Output::Adapter
 
       def formatted_value
         formatter = @formatters.formatter_for_type(@field_wrapper.field.class)
-        (formatter ? formatter.format(value) : value) || ''
+        formatter ? formatter.format(value) : value.to_s
       end
 
       def self.values(headers, cells)
         headers.map do |header|
-          cell = cells.find{ |cell| cell.field_wrapper.display_name == header }
-          cell ? cell.formatted_value : ''
+          cells.find { |c| c.field_wrapper.display_name == header }.formatted_value
         end
       end
 
