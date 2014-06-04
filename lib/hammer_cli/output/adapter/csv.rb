@@ -48,8 +48,9 @@ module HammerCLI::Output::Adapter
       end
 
       def self.headers(cells, context)
-        cells.map(&:field_wrapper).select{ |f| !(f.field.class <= Fields::Id) ||
-                                           context[:show_ids] }.map { |f| f.display_name }
+        cells.map(&:field_wrapper)
+          .select { |fw| fw.header? || context[:show_ids] }
+          .map(&:display_name)
       end
 
       def in_column?(header)
@@ -124,6 +125,10 @@ module HammerCLI::Output::Adapter
         names << @field.label if @field.label
         names << suffix unless suffix.empty?
         names.join("::")
+      end
+
+      def header?
+        self.field.class <= Fields::Field
       end
     end
 
