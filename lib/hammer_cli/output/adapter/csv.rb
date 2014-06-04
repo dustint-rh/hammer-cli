@@ -38,19 +38,23 @@ module HammerCLI::Output::Adapter
 
       def formatted_value
         formatter = @formatters.formatter_for_type(@field_wrapper.field.class)
-        (formatter ? formatter.format(value) : value) || ''
+        formatter ? formatter.format(value) : value.to_s
       end
 
       def self.values(headers, cells)
         headers.map do |header|
-          cell = cells.find{ |cell| cell.field_wrapper.display_name == header }
-          cell ? cell.formatted_value : ''
+          cells.find { |cell| cell.in_column?(header) }.formatted_value
         end
       end
 
       def self.headers(cells, context)
-        cells.map(&:field_wrapper).select{ |f| !(f.field.class <= Fields::Id) || 
-                                           context[:show_ids] }.map { |f| f.display_name }
+        cells.map(&:field_wrapper)
+          .select { |fw| fw.header? || context[:show_ids] }
+          .map(&:display_name)
+      end
+
+      def in_column?(header)
+        self.field_wrapper.display_name == header
       end
 
       private
@@ -121,6 +125,10 @@ module HammerCLI::Output::Adapter
         names << @field.label if @field.label
         names << suffix unless suffix.empty?
         names.join("::")
+      end
+
+      def header?
+        self.field.class <= Fields::Field
       end
     end
 
